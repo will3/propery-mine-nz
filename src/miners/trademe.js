@@ -2,6 +2,10 @@ const request = require('request-promise');
 const cheerio = require('cheerio');
 const _ = require('lodash');
 const Promise = require('bluebird');
+const MongoClient = require('mongodb').MongoClient;
+const mongoDbUrl = require('../secrets').mongoDbUrl;
+const dbName = require('../secrets').dbName;
+const util = require('util');
 
 module.exports = function() {
 	let minPage = Infinity;
@@ -9,20 +13,25 @@ module.exports = function() {
 	const pagesToTry = 10000;
 
 	var i = 1;
-	var totalRequests = 0;
-	var maxTotalRequests = 1;
+
+	let dbo;
+
+	MongoClient
+	.connect(mongoDbUrl)
+	.then((db) => {
+		dbo = db.db(dbName);
+		return dbo.createCollection("listings");
+	})
+	.then(() => {
+		queueNext();
+	})
+	.catch((err) => {
+		throw err;
+	});
 
 	function queueNext() {
-		while(totalRequests < maxTotalRequests) {
-			queueOne();	
-		}
-	};
-
-	function queueOne() {
-		totalRequests++;
 		console.log('page ' + i);
 		getUrls(i).then(() => {
-			totalRequests--;
 			i++;
 			if (i >= minPage) {
 				return;
@@ -30,13 +39,11 @@ module.exports = function() {
 			if (i >= pagesToTry) {
 				return;
 			}
-			queueNext();
+			return queueNext();
 		}).catch((err) => {
-			console.log(err);
+			throw err;
 		});
-	}
-
-	queueNext();
+	};
 
 	function getUrls(pageNumber) {
 		const url = getUrl(pageNumber);
@@ -69,12 +76,21 @@ module.exports = function() {
 
 			return Promise.all(urls.map((url) => {
 				return mineUrl(url);
-			}));
+			})).then((listings) => {
+				listings.forEach((listing) => {
+					const operations = [];
+					operations.push(
+						dbo.collection('listings').update({ _id: listing._id }, listing, { upsert: true })
+					);
+					return operations;
+				});
+			});
 		});
 	};
 
 	function mineUrl(url) {
 		return request(url).then((body) => {
+			console.log('mining ' + url);
 			const $ = cheerio.load(body);
 			const listingIdRegx = /Listing #:(.*)/;
 			const listingId = listingIdRegx.exec($('#ListingTitle_ListingNumberContainer').html())[1];
@@ -82,8 +98,8 @@ module.exports = function() {
 				console.log('failed to extract listing id');
 			}
 			const title = $('.property-title > h1').html();
-			const price = $('.price').html();
-			const listedStatus = $('.PriceSummaryDetails_ListedStatusText').html();
+			const price = $('#PriceSummaryDetails_TitlePrice').html();
+			const listedStatus = $('#PriceSummaryDetails_ListedStatusText').html();
 			const imageElements = $('.carousel > ul > li > img');
 			const images = [];
 			imageElements.each((index, el) => {
@@ -97,24 +113,31 @@ module.exports = function() {
 
 			const rows = $('table#ListingAttributes tr');
 			
-			const attributeTypes = [ 'Location:', 'Property type:', 'Land area:', 'Price:', 'Rooms:', 'Floor area:', 'Parking:', 'Open home times:', 'Rateable value (RV):', 'Property ID#:' ];
+			const attributeTypes = [ 'Location:', 'Property type:', 'Land area:', 'Price:', 'Rooms:', 'Floor area:', 'Parking:', 'Open home times:', 'Rateable value (RV):', 'Property ID#:', 'In the area:', 'Smoke alarm:', 'Viewing instructions:' ];
 
+			const attributes = [];
 			rows.each(function(i, row) {
 				const title = $('th', row).html().trim();
 				if (!_.includes(attributeTypes, title)) {
-					console.log('unknown attribute type: ' + title);
+					console.warn('unknown attribute type: ' + title);
 				}
 				let value = $('td', row).html().trim();
 
 				if (title === 'Open home times:') {
 					value = extractOpenHomeDates(value);
 				}
+				const attribute = {
+					title, value
+				};
+				attributes.push(attribute);
 			});
 
 			const description = $('#ListingDescription_ListingDescription').html();
 			const mapState = extractMapState($);
 			const expiredAt = $('#ClassifiedActions_Expires').html();
-			console.log({ title, price, listedStatus, imageElements, images, agentBrandingImage, agentName, agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, title, description, mapState, expiredAt });
+			const _id = 'trademe-' + listingId;
+			const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName, agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, url };
+			return listing;
 		});
 	}
 
