@@ -27,7 +27,26 @@
   to { transform: rotate(360deg); }
 }
 
+nav {
+  position: absolute;
+  height: 40px;
+  left: 0;
+  top: 0;
+  right: 0;
+}
+
 .map {
-  width:100%;
-  height:400px;
+  position: absolute;
+  left: 0;
+  top: 40px;
+  bottom: 0;
+  right: 400px;
+}
+
+.sidepanel {
+  position: absolute;
+  left: 0;
+  top: 40px;
+  bottom: 0;
+  width: 400px;
 }

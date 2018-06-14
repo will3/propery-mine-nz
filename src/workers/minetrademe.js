@@ -7,12 +7,12 @@ const mongoDbUrl = require('../secrets').mongoDbUrl;
 const dbName = require('../secrets').dbName;
 const util = require('util');
 
-module.exports = function() {
+module.exports = function(startPage) {
 	let minPage = Infinity;
 
 	const pagesToTry = 10000;
 
-	var i = 1;
+	var i = startPage;
 
 	let dbo;
 
@@ -77,13 +77,16 @@ module.exports = function() {
 			return Promise.all(urls.map((url) => {
 				return mineUrl(url);
 			})).then((listings) => {
+				const operations = [];
 				listings.forEach((listing) => {
-					const operations = [];
+					if (listing == null) {
+						return;
+					}
 					operations.push(
 						dbo.collection('listings').update({ _id: listing._id }, listing, { upsert: true })
 					);
-					return operations;
 				});
+				return operations;
 			});
 		});
 	};
@@ -92,8 +95,13 @@ module.exports = function() {
 		return request(url).then((body) => {
 			console.log('mining ' + url);
 			const $ = cheerio.load(body);
+			if ($('#ExpiredContainer_LoginMessage').length > 0) {
+				// expired
+				return null;
+			}
 			const listingIdRegx = /Listing #:(.*)/;
-			const listingId = listingIdRegx.exec($('#ListingTitle_ListingNumberContainer').html())[1];
+			const listingIdMatch = listingIdRegx.exec($('#ListingTitle_ListingNumberContainer').html());
+			const listingId = listingIdMatch[1];
 			if (listingId == null || listingId.length === 0) {
 				console.log('failed to extract listing id');
 			}
@@ -110,7 +118,7 @@ module.exports = function() {
 			const agencyName = $('#PropertyContactBox_AgencyName').html();
 			const agentWorkPhoneNumber = extractPhoneNumber($('#PropertyContactBox_AgentWorkPhoneNumber').html());
 			const agentMobilePhoneNumber = extractPhoneNumber($('#PropertyContactBox_AgentMobilePhoneNumber').html());
-
+			const agentPhoto = $('#PropertyContactBox_AgentPhoto').attr('src');
 			const rows = $('table#ListingAttributes tr');
 			
 			const attributeTypes = [ 'Location:', 'Property type:', 'Land area:', 'Price:', 'Rooms:', 'Floor area:', 'Parking:', 'Open home times:', 'Rateable value (RV):', 'Property ID#:', 'In the area:', 'Smoke alarm:', 'Viewing instructions:' ];
@@ -136,7 +144,13 @@ module.exports = function() {
 			const mapState = extractMapState($);
 			const expiredAt = $('#ClassifiedActions_Expires').html();
 			const _id = 'trademe-' + listingId;
-			const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName, agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, url };
+
+			const location = mapState == null ? null : {
+	    	type: 'Point',
+				coordinates: [ mapState.lng, mapState.lat ]
+	    };
+
+			const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName, agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, url, location, agentPhoto };
 			return listing;
 		});
 	}
@@ -181,7 +195,7 @@ module.exports = function() {
 	}
 
 	function getUrl(page) {
-		const url = `https://www.trademe.co.nz/browse/categoryattributesearchresults.aspx?cid=5748&search=1&rptpath=350-5748-&rsqid=3bfb4ffdba9847debd6364f8fe8d9b00&nofilters=1&originalsidebar=1&key=1627800810&page=${page}&sort_order=expiry_desc`;
+		const url = `https://www.trademe.co.nz/browse/categoryattributesearchresults.aspx?cid=5748&search=1&rptpath=350-5748-&rsqid=1d6f2835a0eb4196b1ef970f319b0bbe&nofilters=1&originalsidebar=1&key=1630247813&page=${page}&sort_order=expiry_desc`;
 		return url;
 	}
 }
