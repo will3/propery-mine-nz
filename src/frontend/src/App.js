@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
 import settings from './settings';
-import fetch from 'fetch';
+import request from 'request-promise';
 import libUrl from 'url';
 
 class App extends Component {
@@ -17,16 +17,15 @@ class App extends Component {
       const bounds = map.getBounds();
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
-      const url = libUrl.format({
-        host: settings.host,
-        path: 'listings',
-        query: {
-          ne: ne.lat() + ',' + ne.lng(),
-          sw: sw.lat() + ',' + sw.lat()
-        }
-      });
+      const url = libUrl.parse(settings.host);
+      url.pathname = '/listings';
+      url.query = {
+        ne: ne.lat() + ',' + ne.lng(),
+        sw: sw.lat() + ',' + sw.lat()
+      };
+      const urlString = libUrl.format(url);
       
-      fetch(url)
+      fetch(urlString)
       .then((response) => {
 
       });
