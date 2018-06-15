@@ -28,7 +28,11 @@ module.exports = function(app, dbo) {
 		dbo.collection('listings').findOne({
 			_id: id
 		}).then((listing) => {
-			res.send(listing);
+			if (listing == null) {
+				res.status(404).send('Not found');
+			} else {
+				res.send(listing);	
+			}
 		}).catch((err) => {
 			res.send(err);
 		});;

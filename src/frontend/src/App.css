@@ -1,3 +1,9 @@
+html {
+  font-family: 'Roboto', sans-serif;
+  color: #777;
+  font-size: 14px;
+}
+
 .App {
   text-align: center;
 }
@@ -50,3 +56,19 @@ nav {
   bottom: 0;
   width: 400px;
 }
+
+h1 {
+  font-size: 20px;
+  padding-bottom: 4px;
+  color: #333;
+  font-weight: normal;
+}
+
+h2 {
+  font-size: 16px;
+  color: #333;
+  font-weight: normal;
+  margin: 0;
+}
+
+img{ border: 0; }

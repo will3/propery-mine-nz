@@ -4,5 +4,7 @@ import './index.css';
 import App from './App';
 import registerServiceWorker from './registerServiceWorker';
 
-ReactDOM.render(<App />, document.getElementById('root'));
+const hash = window.location.hash;
+
+ReactDOM.render(<App hash={hash}/>, document.getElementById('root'));
 registerServiceWorker();
