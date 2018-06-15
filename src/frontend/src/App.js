@@ -6,6 +6,7 @@ import request from 'request-promise';
 import libUrl from 'url';
 import _ from 'lodash';
 import ListingView from './ListingView';
+import geolib from 'geolib';
 
 class App extends Component {
   constructor(props) {
@@ -21,11 +22,12 @@ class App extends Component {
         zoom: 15,
     };
     this.map = new google.maps.Map(document.getElementById("map"),mapProp);
-    const updateForBoundsChangedThrottled = _.throttle(this.updateForBoundsChanged.bind(this), 0.1);
+    const updateForBoundsChangedThrottled = _.throttle(this.updateForBoundsChanged.bind(this), 400, {leading: false, trailing: true});
     this.map.addListener('bounds_changed', function() {
+      console.log('bounds changed');
       updateForBoundsChangedThrottled();
     });
-    this.markers = {};
+    this.markers = [];
 
     const hash = this.props.hash;
     if (hash != null && hash.length > 1) {
@@ -35,9 +37,10 @@ class App extends Component {
   }
 
   updateForBoundsChanged() {
+    console.log('get listings');
     this.getListings();
-    this.removeOutOfBoundsMarkers();
   }
+
 
   getListings() {
     const google = window.google;
@@ -54,19 +57,49 @@ class App extends Component {
     fetch(urlString)
     .then((response) => {
       if (response.ok) {
-        response.json().then((listings) => {
-          listings.forEach((listing) => {
-            const coords = { lng: listing.location.coordinates[0], lat: listing.location.coordinates[1] };
-            if (this.markers[listing._id] == null) {
+        response.json().then((result) => {
+          const clusters = result.clusters;
+
+          for (var i = 0; i < this.markers.length; i++) {
+            const marker = this.markers[i];
+            marker._moved = false;
+          }
+
+          const markers = this.markers.slice();
+          clusters.forEach((cluster) => {
+            const coords = { 
+              lng: parseFloat(cluster.center.longitude), 
+              lat: parseFloat(cluster.center.latitude) };
+
+            let minDistance = Infinity;
+            let closestMarker = null;
+            for (var i = 0; i < markers.length; i++) {
+              const start = { latitude: markers[i].position.lat(), longitude: markers[i].position.lng() };
+              const end = { latitude: coords.lat, longitude: coords.lng };
+              const distance = geolib.getDistance(start, end);
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestMarker = markers[i];
+              }
+            }
+
+            if (closestMarker == null || closestMarker._moved) {
               const marker = new google.maps.Marker({
                 position: coords,
-                map: this.map
-              });
-              marker.addListener('click', () => {
-                this.showListing(listing._id);
-              });
-              this.markers[listing._id] = marker;
+                map: this.map,
+                icon: 'images/m3.png',
+                label: '' + cluster.listingCount
+              });  
+              this.markers.push(marker);
+            } else {
+              closestMarker._moved = true;
+              closestMarker.setPosition(coords);
+              closestMarker.setLabel('' + cluster.listingCount);
             }
+            
+            // marker.addListener('click', () => {
+            //   // this.showListing(listing._id);
+            // });
           });
         });
       }
@@ -76,24 +109,6 @@ class App extends Component {
   showListing(listingId) {
     window.history.pushState(null, null, '#' + listingId);
     this.setState({ listingId });
-  }
-
-  removeOutOfBoundsMarkers() {
-    const bounds = this.map.getBounds();
-
-    const markersToDelete = [];
-    for (var id in this.markers) {
-      const marker = this.markers[id];
-      const position = marker.position;
-      if (!bounds.contains(position)) {
-        marker.setMap(null);
-        markersToDelete.push(id);
-      }
-    }
-
-    for (var i = 0; i < markersToDelete.length; i++) {
-      delete this.markers[markersToDelete[i]];
-    }
   }
 
   onListingCloseClicked() {
