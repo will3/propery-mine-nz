@@ -23,7 +23,7 @@ class App extends Component {
     };
     this.map = new google.maps.Map(document.getElementById("map"),mapProp);
     const updateForBoundsChangedThrottled = _.throttle(this.updateForBoundsChanged.bind(this), 400, {leading: false, trailing: true});
-    this.map.addListener('bounds_changed', function() {
+    this.map.addListener('idle', function() {
       console.log('bounds changed');
       updateForBoundsChangedThrottled();
     });
@@ -37,7 +37,6 @@ class App extends Component {
   }
 
   updateForBoundsChanged() {
-    console.log('get listings');
     this.getListings();
   }
 
@@ -84,26 +83,41 @@ class App extends Component {
             }
 
             if (closestMarker == null || closestMarker._moved) {
+              const length = ('' + cluster.listingCount).length;
+              let iconName;
+              if (length <= 2) {
+                iconName = 'images/g2.png';
+              } else if (length === 3) {
+                iconName = 'images/g3.png';
+              } else if (length === 4) {
+                iconName = 'images/g4.png';
+              }
+
               const marker = new google.maps.Marker({
                 position: coords,
                 map: this.map,
-                icon: 'images/m3.png',
-                label: '' + cluster.listingCount
+                icon: iconName,
+                label: this.formatLabel(cluster.listingCount)
               });  
               this.markers.push(marker);
             } else {
               closestMarker._moved = true;
               closestMarker.setPosition(coords);
-              closestMarker.setLabel('' + cluster.listingCount);
+              closestMarker.setLabel(this.formatLabel(cluster.listingCount));
             }
-            
-            // marker.addListener('click', () => {
-            //   // this.showListing(listing._id);
-            // });
           });
+
+          this.removeOutOfBoundsMarkers();
         });
       }
     });
+  }
+
+  formatLabel(listingCount) {
+    return {
+      text: '' + listingCount,
+      color: 'white',
+    }
   }
 
   showListing(listingId) {
@@ -115,6 +129,25 @@ class App extends Component {
     window.history.pushState(null, null, '#');
     this.setState({ listingId: null});
   }
+
+  removeOutOfBoundsMarkers() {
+    const bounds = this.map.getBounds();
+
+    const markersToDelete = [];
+    for (var i = 0; i < this.markers.length;i ++) {
+      const marker = this.markers[i];
+      const position = marker.position;
+      if (!bounds.contains(position)) {
+        marker.setMap(null);
+        markersToDelete.push(marker);
+      }
+    }
+
+    _.remove(this.markers, (marker) => {
+      return _.includes(markersToDelete, marker);
+    });
+  }
+
 
   render() {
     const listingId = this.state.listingId;
