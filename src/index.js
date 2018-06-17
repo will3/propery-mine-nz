@@ -8,7 +8,7 @@ app.use(function(req, res, next) {
   next();
 });
 
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 const connectDb = require('./db');
 
