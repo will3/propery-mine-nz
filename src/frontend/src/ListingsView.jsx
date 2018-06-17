@@ -74,7 +74,7 @@ class ListingsView extends Component {
 		});
 
 		const total = this.state.meta.total;
-		const start = this.state.meta.page * this.state.meta.perPage + 1;
+		const start = (this.state.meta.page - 1) * this.state.meta.perPage + 1;
 		const end = start + this.state.meta.perPage;
 
 		return (
