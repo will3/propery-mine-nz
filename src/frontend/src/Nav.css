@@ -1,0 +1,39 @@
+.nav-search-container {
+	margin-top: 4px;
+	margin-left: 4px;
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.nav-input {
+	height: 32px;
+	outline: none;
+	border: 1px solid #ccc;
+	border-right: none;
+	float: left;
+	box-sizing: border-box;
+	/*box-shadow: 4px 0 1px 0 rgba(0,0,0,0.1);*/
+	text-indent: 4px;
+	font-size: 14px;
+	color: #333;
+	width: 400px;
+	z-index: 999;
+	position: relative;
+}
+
+.nav-search-button {
+	float: left;
+	width: 40px;
+	height: 32px;
+	background-color: #008BE6;
+	outline: none;
+	position: relative;
+}
+
+.nav-search-button-image {
+	width: 18px;
+	height: 18px;
+	position: absolute;
+	left: 12px;
+	top: 6px;
+}

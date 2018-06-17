@@ -2,8 +2,8 @@ import React, { Component } from 'react';
 import libUrl from 'url';
 import settings from './settings';
 import _ from 'lodash';
-import $ from 'jquery';
 import './ListingView.css';
+import he from 'he';
 
 class ListingView extends Component {
 	constructor(props) {
@@ -47,6 +47,7 @@ class ListingView extends Component {
 			return null;
 		}
 		let imageUrl = listing.images[this.state.photoIndex];
+		imageUrl = imageUrl.thumb || imageUrl;
 		imageUrl = imageUrl.replace('/thumb/', '/plus/');
 
 		const location = _.find(listing.attributes, (attr) => {
@@ -54,7 +55,7 @@ class ListingView extends Component {
 		}).value;
 		
 		const agentPhoto = listing.agentPhoto == null || listing.agentPhoto.length === 0 ? null : (
-			<div className='listing-agent-photo' style={{ backgroundImage: `url(\"${listing.agentPhoto}\")` }}></div>
+			<div className='listing-agent-photo' style={{ backgroundImage: `url("${listing.agentPhoto}")` }}></div>
 		);
 		const phone = listing.agentWorkPhoneNumber == null || listing.agentWorkPhoneNumber.length === 0 ? null : (
 			<div className='listing-agent-phone'>
@@ -73,13 +74,16 @@ class ListingView extends Component {
 		// { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, url, location, agentPhoto }
 
 		const attributes = listing.attributes.map((attr, i) => {
-			let value = <td>{attr.value}</td>;
+			let value;
 			if (attr.title === 'Floor area:') {
 				value = <td dangerouslySetInnerHTML={{ __html: attr.value }}></td>
-			}
-			if (attr.title === 'Open home times:') {
+			} else if (attr.title === 'Open home times:') {
 				const html = attr.value.join(`<br>`);
 				value = <td dangerouslySetInnerHTML={{ __html: html }}></td>
+			} else if (attr.title === 'Land area:') {
+				value = <td dangerouslySetInnerHTML={{ __html: attr.value }}></td>	
+			} else {
+				value = <td>{he.decode(attr.value)}</td>
 			}
 			return (
 				<tr key={i}>
@@ -114,14 +118,14 @@ class ListingView extends Component {
 							<span className='listing-view-carousel-button listing-view-carousel-button-right' onClick={this.onRightClicked}>
 								<i class="fas fa-chevron-right"></i>
 							</span>
-							<img className='listing-view-image' style={{ backgroundImage: `url(\"${imageUrl}\")` }}/>
+							<img className='listing-view-image' style={{ backgroundImage: `url("${imageUrl}")` }}/>
 						</div>
 
 						<div className='listing-detail-row'>
 							<div className='listing-detail-cell'>
 								<div className='listing-detail-cell-padding'>
-									<h1 className='listing-location'>{location}</h1>
-									<h2 className='listing-price'>{listing.price}</h2>
+									<h1 className='listing-location'>{he.decode(location)}</h1>
+									<h2 className='listing-price'>{he.decode(listing.price)}</h2>
 									<div className='listing-status'>{listing.listedStatus}</div>
 								</div>
 							</div>

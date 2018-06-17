@@ -1,5 +1,9 @@
 const geolib = require('geolib');
 
+function getLngDiff(lng) {
+	return Math.abs(lng % 360);
+}
+
 module.exports = function(app, dbo) {
 	app.get('/listings', (req, res) => {
 		const bounds = req.query.bounds;
@@ -8,30 +12,76 @@ module.exports = function(app, dbo) {
 		const swLng = parseFloat(numbers[1]);
 		const neLat = parseFloat(numbers[2]);
 		const neLng = parseFloat(numbers[3]);
-		const width = neLng - swLng;
+		const width = getLngDiff(neLng - swLng);
 		const height = swLng - swLat;
 		const box = [ [ swLng, swLat ], [ neLng, neLat ] ];
-		const projection = { 'location.coordinates': 1 };
+
+		const page = req.query.page || 1;
+		const perPage = 24; 
+		const skip = (page - 1) * perPage;
+
+		const cursor = dbo.collection('listings').find({
+			location: { $geoWithin: { $box: box } }
+		});
+		let total;
+		const totalPages = Math.ceil(total / perPage);
+
+		cursor.count().then((count) => {
+			total = count;
+			return cursor.skip(skip).limit(perPage).toArray();	
+		}).then((listings) => {
+			const meta = { total, page, totalPages, perPage };
+			res.send({ listings, meta });
+		}).catch((err) => {
+			res.send(err);
+		});
+	});
+
+	app.get('/clusters', (req, res) => {
+		const bounds = req.query.bounds;
+		const numbers = bounds.split(',');
+		const swLat = parseFloat(numbers[0]);
+		const swLng = parseFloat(numbers[1]);
+		const neLat = parseFloat(numbers[2]);
+		const neLng = parseFloat(numbers[3]);
+		const width = getLngDiff(neLng - swLng);
+		const height = swLng - swLat;
+		const box = [ [ swLng, swLat ], [ neLng, neLat ] ];
+
+		const intervals = [ 0.26401519775390625, 0.5280303955078125, 1.056060791015625, 2.11212158203, 4.22424316406, 8.44848632813, 16.8969726563 ];
 		
-		dbo.collection('listings').find({
-			location: {
-				$geoWithin: {
-					$box: box
-				}
+		let intervalToUse = null;
+		for (var i = intervals.length - 1; i >= 0; i--) {
+			const number = intervals[i];
+			if (width > number) {
+				intervalToUse = number;
+				break;
 			}
+		}
+
+		if (intervalToUse != null) {
+			dbo.collection('clusters').find({
+				width: intervalToUse,
+				center: {
+					$geoWithin: {
+						$box: box
+					}
+				}
+			}).project({ width: 0 }).toArray().then((clusters) => {
+				res.send({ clusters });
+			}).catch((err) => {
+				res.send(err);
+			});
+			return;
+		}
+
+		dbo.collection('listings').find({
+			location: { $geoWithin: { $box: box } }
 		})
-		.project(projection)
+		.project({ 'location.coordinates': 1 })
 		.toArray()
 		.then((listings) => {
-			const clusters = clusterListings(listings);
-			const result = clusters.map((cluster) => {
-				const c = {
-					listingCount: cluster.listings.length,
-					center: cluster.center,
-					listing: cluster.listings.length === 1 ? cluster.listings[0] : null
-				}
-				return c;
-			});
+			const result = getClusters(listings, width);
 			res.send({
 				clusters: result
 			});
@@ -53,20 +103,59 @@ module.exports = function(app, dbo) {
 			}
 		}).catch((err) => {
 			res.send(err);
-		});;
+		});
 	});
 };
 
-function clusterListings(listings) {
-	const gridSize = 600;
+function getClusters(listings, width) {
+	let gridSize = width * 0.1;
+	if (width < 0.03) {
+		gridSize = width * 0.03;
+	}
+
+	const listingGroups = {};
+	for (var i = 0; i < listings.length; i++) {
+		const listing = listings[i];
+		if (listing.location == null) {
+			continue;
+		}
+		const key = listing.location.coordinates[0] + ',' + listing.location.coordinates[1];
+		if (listingGroups[key] == null) {
+			listingGroups[key] = {
+				listings: [],
+				coords: listing.location.coordinates
+			};
+		}
+		listingGroups[key].listings.push(listing);
+	}
+
+	const clusters = clusterListings(listingGroups, gridSize);
+	const result = clusters.map((cluster) => {
+		const c = {
+			listingGroupCount: cluster.listingGroups.length,
+			listingCount: cluster.listingCount,
+			center: cluster.center,
+			listingGroups: (cluster.listingGroups.length === 1 || width < 0.03) ? cluster.listingGroups : []
+		}
+		return c;
+	});
+
+	return result;
+}
+
+module.exports.getClusters = getClusters;
+
+function clusterListings(listingGroups, gridSize) {
 	const clusters = [];
 
-	listings.forEach((listing) => {
+	let count = 0;
+	for (var id in listingGroups) {
+		const listingGroup = listingGroups[id];
 		let added = false;
 		for (var i = 0; i < clusters.length; i++) {
 			const cluster = clusters[i];
-			if (cluster.distanceTo(listing) < gridSize) {
-				cluster.addListing(listing);
+			if (cluster.distanceToSquared(listingGroup) <= gridSize) {
+				cluster.add(listingGroup);
 				added = true;
 				break;
 			}
@@ -74,34 +163,33 @@ function clusterListings(listings) {
 
 		if (!added) {
 			const cluster = new Cluster();
-			cluster.addListing(listing);
+			cluster.add(listingGroup);
 			clusters.push(cluster);
 		}
-	});
+
+		count++;
+	}
 
 	return clusters;
 };
 
 class Cluster {
 	constructor() {
-		this.listings = [];
+		this.listingGroups = [];
+		this.center = [ 0, 0 ];
+		this.listingCount = 0;
 	}
 
-	addListing(listing) {
-		this.listings.push(listing);
-		this.calcCenter();
+	add(listingGroup) {
+		this.listingGroups.push(listingGroup);
+		this.center[0] += (listingGroup.coords[0] - this.center[0]) / this.listingGroups.length;
+		this.center[1] += (listingGroup.coords[1] - this.center[1]) / this.listingGroups.length;
+		this.listingCount += listingGroup.listings.length;
 	}
 
-	calcCenter() {
-		const coordinates = this.listings.map((listing) => {
-			return { latitude: listing.location.coordinates[1], longitude: listing.location.coordinates[0] };
-		});
-		this.center = geolib.getCenter(coordinates);
-	}
-
-	distanceTo(listing) {
-		const coord = { latitude: listing.location.coordinates[1], longitude: listing.location.coordinates[0] };
-		const distance = geolib.getDistanceSimple(coord, this.center);
-		return distance;
+	distanceToSquared(listingGroup) {
+		const lngDiff = getLngDiff(listingGroup.coords[0] - this.center[0]);
+		const latDiff = listingGroup.coords[1] - this.center[1];
+		return Math.sqrt(lngDiff * lngDiff + latDiff * latDiff);
 	}
 }

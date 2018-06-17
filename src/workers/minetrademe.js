@@ -19,10 +19,10 @@ module.exports = function(param) {
 	}
 }
 
+let dbo;
+
 function minePages(startPage) {
 	var i = startPage;
-
-	let dbo;
 
 	MongoClient
 	.connect(mongoDbUrl)
@@ -100,6 +100,52 @@ function getUrls(pageNumber) {
 	});
 };
 
+function extractPriceStructure(price, $) {
+	const askingPriceRegex = /Asking price: (.*)/;
+	let result = askingPriceRegex.exec(price);
+	if (result != null) {
+		return {
+			type: 'asking_price',
+			price: result[1]
+		};
+	}
+
+	const enquiresOverRegex = /Enquiries over (.*)/;
+	result = enquiresOverRegex.exec(price);
+	if (result != null) {
+		return {
+			type: 'equires_over',
+			price: result[1]
+		};
+	}
+
+	if (price === 'Price by negotiation') {
+		return {
+			type: 'price_by_negotiation'
+		};
+	}
+
+	if (price === 'To be auctioned') {
+		return {
+			type: 'to_be_auctioned'
+		};
+	}
+
+	if (price === 'Deadline sale') {
+		return {
+			type: 'deadline_sale'
+		};
+	}
+
+	if (price === 'For sale by tender') {
+		return {
+			type: 'for_sale_by_tender'
+		};
+	}
+
+	throw new Error('failed to extract pricing structure with: ' + price);
+}
+
 function mineUrl(url) {
 	return request(url).then((body) => {
 		console.log('mining ' + url);
@@ -116,6 +162,7 @@ function mineUrl(url) {
 		}
 		const title = he.decode($('.property-title > h1').html());
 		const price = he.decode($('#PriceSummaryDetails_TitlePrice').html());
+		const priceStructure = extractPriceStructure(price, $);
 		const listedStatus = he.decode($('#PriceSummaryDetails_ListedStatusText').html());
 		const imageElements = $('.carousel > ul > li > img');
 		const images = [];
@@ -162,7 +209,7 @@ function mineUrl(url) {
 			coordinates: [ mapState.lng, mapState.lat ]
     };
 
-		const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName, agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, url, location, agentPhoto };
+		const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName, agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, url, location, agentPhoto, priceStructure };
 		return listing;
 	});
 }
@@ -207,6 +254,6 @@ function extractMapState($) {
 }
 
 function getUrl(page) {
-	const url = `https://www.trademe.co.nz/browse/categoryattributesearchresults.aspx?cid=5748&search=1&rptpath=350-5748-&rsqid=1d6f2835a0eb4196b1ef970f319b0bbe&nofilters=1&originalsidebar=1&key=1630247813&page=${page}&sort_order=expiry_desc`;
+	const url = `https://www.trademe.co.nz/browse/categoryattributesearchresults.aspx?cid=5748&search=1&nofilters=1&originalsidebar=1&rptpath=350-5748-&rsqid=c0e4d5d93c164d1783d7863f7d61a464&key=1635377383&page=${page}&sort_order=expiry_desc`;
 	return url;
 }

@@ -7,6 +7,8 @@ import libUrl from 'url';
 import _ from 'lodash';
 import ListingView from './ListingView';
 import geolib from 'geolib';
+import ListingsView from './ListingsView';
+import Nav from './Nav';
 
 class App extends Component {
   constructor(props) {
@@ -22,9 +24,8 @@ class App extends Component {
         zoom: 15,
     };
     this.map = new google.maps.Map(document.getElementById("map"),mapProp);
-    const updateForBoundsChangedThrottled = _.throttle(this.updateForBoundsChanged.bind(this), 400, {leading: false, trailing: true});
+    const updateForBoundsChangedThrottled = _.throttle(this.updateForBoundsChanged.bind(this), 200, {leading: true, trailing: false});
     this.map.addListener('idle', function() {
-      console.log('bounds changed');
       updateForBoundsChangedThrottled();
     });
     this.markers = [];
@@ -34,12 +35,13 @@ class App extends Component {
       const listingId = hash.substring(1);
       this.showListing(listingId);
     }
+    this.setState({ map: this.map });
   }
 
   updateForBoundsChanged() {
     this.getListings();
+    this.setState({ bounds: this.getBounds() });
   }
-
 
   getListings() {
     const google = window.google;
@@ -47,17 +49,17 @@ class App extends Component {
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
     const url = libUrl.parse(settings.host);
-    url.pathname = '/listings';
+    url.pathname = '/clusters';
     url.query = {
       bounds: sw.lat() + ',' + sw.lng() + ',' + ne.lat() + ',' + ne.lng()
     };
     const urlString = libUrl.format(url);
-      
+
     fetch(urlString)
     .then((response) => {
       if (response.ok) {
         response.json().then((result) => {
-          const clusters = result.clusters;
+          const clusters = result.clusters || [];
 
           for (var i = 0; i < this.markers.length; i++) {
             const marker = this.markers[i];
@@ -67,8 +69,8 @@ class App extends Component {
           const markers = this.markers.slice();
           clusters.forEach((cluster) => {
             const coords = { 
-              lng: parseFloat(cluster.center.longitude), 
-              lat: parseFloat(cluster.center.latitude) };
+              lng: cluster.center[0], 
+              lat: cluster.center[1] };
 
             let minDistance = Infinity;
             let closestMarker = null;
@@ -82,38 +84,72 @@ class App extends Component {
               }
             }
 
-            if (closestMarker == null || closestMarker._moved) {
-              const length = ('' + cluster.listingCount).length;
-              let iconName;
-              if (length <= 2) {
-                iconName = 'images/g2.png';
-              } else if (length === 3) {
-                iconName = 'images/g3.png';
-              } else if (length === 4) {
-                iconName = 'images/g4.png';
-              }
+            const length = ('' + cluster.listingCount).length;
+            let icon;
+            if (cluster.listingCount === 1) {
+              icon = { url: 'images/marker.png' };
+            } else if (length === 1) {
+              icon = { url: 'images/g1.png' };
+            } else if (length === 2) {
+              icon = { url: 'images/g2.png' };
+            } else if (length === 3) {
+              icon = { url: 'images/g3.png' };
+            } else {
+              icon = { url: 'images/g4.png' };
+            }
 
+            if (closestMarker == null || closestMarker._moved) {
               const marker = new google.maps.Marker({
                 position: coords,
                 map: this.map,
-                icon: iconName,
+                icon: icon,
                 label: this.formatLabel(cluster.listingCount)
-              });  
+              });
               this.markers.push(marker);
+              this.addMarkerListener(marker, cluster);
             } else {
               closestMarker._moved = true;
               closestMarker.setPosition(coords);
               closestMarker.setLabel(this.formatLabel(cluster.listingCount));
+              closestMarker.setIcon(icon);
+              this.addMarkerListener(closestMarker, cluster);
             }
           });
 
           this.removeOutOfBoundsMarkers();
+
+          for (var i = 0; i < markers.length; i++) {
+            const marker = markers[i];
+            if (!marker._moved) {
+              marker.setMap(null);
+              _.remove(this.markers, marker);
+            }
+          }
         });
       }
     });
   }
 
+  addMarkerListener(marker, cluster) {
+    if (marker._clickListener != null) {
+      const google = window.google;
+      google.maps.event.removeListener(marker._clickListener);
+    }
+    marker._clickListener = marker.addListener('click', () => {
+      if (cluster.listingGroupCount === 1 || this.getWidth() < 0.03) {
+        this.showListing(cluster.listingGroups[0].listings[0]._id);
+      } else {
+        const zoom = this.map.getZoom();
+        this.map.setZoom(zoom + 2);
+        this.map.setCenter(marker.getPosition());  
+      }
+    });
+  }
+
   formatLabel(listingCount) {
+    if (listingCount === 1) {
+      return '';
+    }
     return {
       text: '' + listingCount,
       color: 'white',
@@ -128,6 +164,22 @@ class App extends Component {
   onListingCloseClicked() {
     window.history.pushState(null, null, '#');
     this.setState({ listingId: null});
+  }
+
+  getBounds() {
+    const google = window.google;
+    const bounds = this.map.getBounds();
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    return sw.lat() + ',' + sw.lng() + ',' + ne.lat() + ',' + ne.lng();
+  }
+
+  getWidth() {
+    const bounds = this.map.getBounds();
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    const width = (ne.lng() - sw.lng() + 360) % 360;;
+    return width;
   }
 
   removeOutOfBoundsMarkers() {
@@ -148,7 +200,6 @@ class App extends Component {
     });
   }
 
-
   render() {
     const listingId = this.state.listingId;
     const listingView = listingId == null ? null : (
@@ -157,11 +208,19 @@ class App extends Component {
       </div>
     );
 
+    const listingsView = this.state.bounds == null ? null : <ListingsView bounds={this.state.bounds} app={this}/>;
+
     return (
       <div>
-        <nav></nav>
-        <div id="map" className="map" />
-        <div className="sidepanel"></div>
+        <nav>
+          <Nav map={this.state.map}/>
+        </nav>
+        <div className="content-wrapper">
+          <div id="map" className="map" />
+          <div className="sidepanel">
+            {listingsView}            
+          </div>
+        </div>
         {listingView}
       </div>
     );
