@@ -18,6 +18,6 @@ connectDb().then((db) => {
 	require('./controllers/listingcontroller')(app, db);
 });
 
-app.use(express.static('src/frontend/build'));
+app.use(express.static('frontend/build'));
 
 app.listen(port, () => console.log(`running on ${port}`));
