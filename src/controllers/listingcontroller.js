@@ -16,7 +16,8 @@ module.exports = function(app, dbo) {
 		const height = swLng - swLat;
 		const box = [ [ swLng, swLat ], [ neLng, neLat ] ];
 
-		const page = req.query.page || 1;
+		let page = req.query.page || 1;
+		page = parseInt(page);
 		const perPage = 24; 
 		const skip = (page - 1) * perPage;
 
@@ -24,12 +25,11 @@ module.exports = function(app, dbo) {
 			location: { $geoWithin: { $box: box } }
 		});
 		let total;
-		const totalPages = Math.ceil(total / perPage);
-
 		cursor.count().then((count) => {
 			total = count;
 			return cursor.skip(skip).limit(perPage).toArray();	
 		}).then((listings) => {
+			const totalPages = Math.ceil(total / perPage);
 			const meta = { total, page, totalPages, perPage };
 			res.send({ listings, meta });
 		}).catch((err) => {

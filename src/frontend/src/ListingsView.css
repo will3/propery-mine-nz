@@ -56,3 +56,42 @@
 .listings-view-count {
 	padding: 12px 12px;
 }
+
+.listings-view-footer {
+	clear: both;
+	padding: 20px 12px 12px 12px;
+}
+
+.listings-view-footer a {
+	cursor: pointer;
+}
+
+.listing-view-footer-page {
+	padding-right: 4px;
+}
+
+.listing-view-footer-number {
+	padding-right: 8px;
+	color: #008BE6;
+}
+
+.listing-view-footer-number:hover {
+	text-decoration: underline;
+}
+
+.listing-view-footer-number-selected {
+	color: #777;
+}
+
+.listing-view-footer-number-selected:hover {
+	text-decoration: none;
+}
+
+.listing-view-footer-next {
+	font-weight: 600;
+	color: #008BE6;
+}
+
+.listing-view-footer-next:hover {
+	text-decoration: underline;
+}

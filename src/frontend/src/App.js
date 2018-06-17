@@ -1,8 +1,6 @@
 import React, { Component } from 'react';
-import logo from './logo.svg';
 import './App.css';
 import settings from './settings';
-import request from 'request-promise';
 import libUrl from 'url';
 import _ from 'lodash';
 import ListingView from './ListingView';
@@ -74,13 +72,14 @@ class App extends Component {
 
             let minDistance = Infinity;
             let closestMarker = null;
-            for (var i = 0; i < markers.length; i++) {
-              const start = { latitude: markers[i].position.lat(), longitude: markers[i].position.lng() };
+            for (var l = 0; l < markers.length; l++) {
+              const marker = markers[l];
+              const start = { latitude: marker.position.lat(), longitude: marker.position.lng() };
               const end = { latitude: coords.lat, longitude: coords.lng };
               const distance = geolib.getDistance(start, end);
               if (distance < minDistance) {
                 minDistance = distance;
-                closestMarker = markers[i];
+                closestMarker = marker;
               }
             }
 
@@ -118,8 +117,8 @@ class App extends Component {
 
           this.removeOutOfBoundsMarkers();
 
-          for (var i = 0; i < markers.length; i++) {
-            const marker = markers[i];
+          for (var l = 0; l < markers.length; l++) {
+            const marker = markers[l];
             if (!marker._moved) {
               marker.setMap(null);
               _.remove(this.markers, marker);
@@ -167,7 +166,6 @@ class App extends Component {
   }
 
   getBounds() {
-    const google = window.google;
     const bounds = this.map.getBounds();
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
