@@ -1,13 +1,7 @@
-const mongoDbUrl = require('../secrets').mongoDbUrl;
-const dbName = require('../secrets').dbName;
-const MongoClient = require('mongodb').MongoClient;
+const connectDb = require('../db');
 
-MongoClient
-.connect(mongoDbUrl)
-.then((db) => {
-  const dbo = db.db(dbName);
-  
-  const collection = dbo.collection('listings');
+connectDb().then((db) => {
+  const collection = db.collection('listings');
   let count = 0;
   collection.count().then((total) => {
   	collection.find({}).forEach((doc) => {

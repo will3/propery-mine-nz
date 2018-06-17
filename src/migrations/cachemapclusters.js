@@ -1,13 +1,11 @@
-const mongoDbUrl = require('../secrets').mongoDbUrl;
-const dbName = require('../secrets').dbName;
-const MongoClient = require('mongodb').MongoClient;
+const connectDb = require('../db');
+
 const getClusters = require('../controllers/listingcontroller').getClusters;
 
 let dbo;
-MongoClient
-.connect(mongoDbUrl)
-.then((db) => {
-  dbo = db.db(dbName);
+
+connectDb().then((db) => {
+	dbo = db;
   return dbo.createCollection('clusters');
 })
 .then(() => {

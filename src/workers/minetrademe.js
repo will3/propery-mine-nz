@@ -3,10 +3,9 @@ const cheerio = require('cheerio');
 const _ = require('lodash');
 const Promise = require('bluebird');
 const MongoClient = require('mongodb').MongoClient;
-const mongoDbUrl = require('../secrets').mongoDbUrl;
-const dbName = require('../secrets').dbName;
 const util = require('util');
 const he = require('he');
+const connectDb = require('../db');
 
 let minPage = Infinity;
 const pagesToTry = 10000;
@@ -23,11 +22,8 @@ let dbo;
 
 function minePages(startPage) {
 	var i = startPage;
-
-	MongoClient
-	.connect(mongoDbUrl)
-	.then((db) => {
-		dbo = db.db(dbName);
+	connectDb((db) => {
+		dbo = db;
 		return dbo.createCollection("listings");
 	})
 	.then(() => {
