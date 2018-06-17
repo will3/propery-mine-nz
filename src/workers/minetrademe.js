@@ -6,30 +6,35 @@ const MongoClient = require('mongodb').MongoClient;
 const util = require('util');
 const he = require('he');
 const connectDb = require('../db');
+const libUrl = require('url');
 
 let minPage = Infinity;
 const pagesToTry = 10000;
 
 module.exports = function(param) {
-	if (parseInt(param) > 0) {
+	if (param == null) {
+		minePages(1);	
+	} else if (parseInt(param) > 0) {
 		minePages(parseInt(param));	
 	} else {
 		mineUrl(param);
 	}
 }
 
-let dbo;
+let db;
 
+let urlObject;
 function minePages(startPage) {
 	var i = startPage;
-	connectDb((db) => {
-		dbo = db;
-		return dbo.createCollection("listings");
-	})
-	.then(() => {
+	connectDb().then((_db) => {
+		db = _db;
+		return db.createCollection("listings");
+	}).then(() => {
+		return getUrlObject();
+	}).then((_urlObject) => {
+		urlObject = _urlObject;
 		queueNext();
-	})
-	.catch((err) => {
+	}).catch((err) => {
 		throw err;
 	});
 
@@ -51,8 +56,9 @@ function minePages(startPage) {
 }
 
 function getUrls(pageNumber) {
-	const url = getUrl(pageNumber);
-	console.log(url);
+	urlObject.query.page = pageNumber;
+	const url = libUrl.format(urlObject);
+
 	return request(url).then((body) => {
 		if (body == null) {
 			throw new Error('failed to extract body');
@@ -61,8 +67,7 @@ function getUrls(pageNumber) {
 
 		const pageNumberInPage = $('#PagingFooter > tbody > tr > td > b').html();
 		if (pageNumberInPage != pageNumber) {
-			console.log(pageNumberInPage);
-			console.log('pages dont match, min page is ' + pageNumber);
+			console.log(`pages dont match, expected ${pageNumber}, got ${pageNumberInPage}`);
 			minPage = pageNumber;
 		}
 
@@ -88,7 +93,7 @@ function getUrls(pageNumber) {
 					return;
 				}
 				operations.push(
-					dbo.collection('listings').update({ _id: listing._id }, listing, { upsert: true })
+					db.collection('listings').update({ _id: listing._id }, listing, { upsert: true })
 				);
 			});
 			return operations;
@@ -249,7 +254,18 @@ function extractMapState($) {
 	return null;
 }
 
-function getUrl(page) {
-	const url = `https://www.trademe.co.nz/browse/categoryattributesearchresults.aspx?cid=5748&search=1&nofilters=1&originalsidebar=1&rptpath=350-5748-&rsqid=c0e4d5d93c164d1783d7863f7d61a464&key=1635377383&page=${page}&sort_order=expiry_desc`;
-	return url;
+function getUrlObject() {
+	const firstPage = `https://www.trademe.co.nz/browse/categoryattributesearchresults.aspx?sort_order=expiry_desc&136=&153=&132=PROPERTY&122=0%2C0&49=0%2C0&29=&123=0%2C0&search=1&sidebar=1&cid=5748&rptpath=350-5748-&216=0%2C0&217=0%2C0&rsqid=8c5eabfa132f4eefa6ed5446992a54d0`;
+	return request(firstPage).then((body) => {
+		if (body == null) {
+			throw new Error('failed to extract body');
+		}
+		const $ = cheerio.load(body);
+		const href = $('#PagingFooter a')[0].attribs.href;
+		const url = libUrl.parse('https://www.trademe.co.nz' + href, true);
+		delete url['search'];
+		delete url['path'];
+		delete url['href'];
+		return url;
+	});	
 }
