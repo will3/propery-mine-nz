@@ -1,11 +1,10 @@
-const mongoDbUrl = require('./secrets').mongoDbUrl;
 const MongoClient = require('mongodb').MongoClient;
-const dbName = require('./secrets').dbName;
+require('dotenv').config();
 
 module.exports = function connectDb() {
 	return MongoClient
-	.connect(mongoDbUrl)
+	.connect(process.env.MONGO_DB_URL)
 	.then((db) => {
-		return db.db(dbName);
+		return db.db(process.env.DB_NAME);
 	});
 };

@@ -1,8 +1,6 @@
 const express = require('express');
 const app = express();
-const mongoDbUrl = require('./secrets').mongoDbUrl;
 const MongoClient = require('mongodb').MongoClient;
-const dbName = require('./secrets').dbName;
 
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
