@@ -203,7 +203,7 @@ class App extends Component {
   render() {
     const listingId = this.state.listingId;
     const listingView = listingId == null ? null : (
-      <div className="listing-view-background-container">
+      <div className="listing-view-background-container" onClick={this.onListingCloseClicked}>
         <ListingView listingId={listingId} onCloseClicked={this.onListingCloseClicked}/>
       </div>
     );

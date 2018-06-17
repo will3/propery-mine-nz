@@ -102,7 +102,9 @@ class ListingView extends Component {
 		);
 
 		return (
-			<div className='listing-view-container'>
+			<div className='listing-view-container' onClick={(e) => {
+				e.stopPropagation();
+			}}>
 				<div className='listing-view-top-bar'>
 					<div className='close-button' onClick={this.props.onCloseClicked}>
 						<i className="fas fa-times"></i>
@@ -113,10 +115,10 @@ class ListingView extends Component {
 					<div>
 						<div className='listing-view-carousel'>
 							<span className='listing-view-carousel-button listing-view-carousel-button-left' onClick={this.onLeftClicked}>
-								<i class="fas fa-chevron-left"></i>
+								<i className="fas fa-chevron-left"></i>
 							</span>
 							<span className='listing-view-carousel-button listing-view-carousel-button-right' onClick={this.onRightClicked}>
-								<i class="fas fa-chevron-right"></i>
+								<i className="fas fa-chevron-right"></i>
 							</span>
 							<img className='listing-view-image' style={{ backgroundImage: `url("${imageUrl}")` }}/>
 						</div>
@@ -151,7 +153,6 @@ class ListingView extends Component {
 				</div>
 			</div>
 		);
-		// src={imageUrl}
 	}
 }
 
