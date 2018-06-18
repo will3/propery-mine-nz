@@ -11,19 +11,20 @@ const libUrl = require('url');
 let minPage = Infinity;
 const pagesToTry = 10000;
 
-module.exports = function(startPaqe) {
-	return minePages(startPaqe);
-}
-
 let db;
+
+module.exports = function(startPaqe) {
+	return connectDb().then((_db) => {
+		db = _db;
+	}).then(() => {
+		return minePages(startPaqe);
+	});
+}
 
 let urlObject;
 function minePages(startPage) {
 	var i = startPage;
-	return connectDb().then((_db) => {
-		db = _db;
-		return db.createCollection("listings");
-	}).then(() => {
+	return db.createCollection("listings").then(() => {
 		return getUrlObject();
 	}).then((_urlObject) => {
 		urlObject = _urlObject;
@@ -176,6 +177,10 @@ function mineUrl(url) {
 		const attributeTypes = [ 'Location:', 'Property type:', 'Land area:', 'Price:', 'Rooms:', 'Floor area:', 'Parking:', 'Open home times:', 'Rateable value (RV):', 'Property ID#:', 'In the area:', 'Smoke alarm:', 'Viewing instructions:' ];
 
 		const attributes = [];
+
+		let bedrooms;
+		let bathrooms;
+
 		rows.each(function(i, row) {
 			const title = $('th', row).html().trim();
 			if (!_.includes(attributeTypes, title)) {
@@ -185,6 +190,21 @@ function mineUrl(url) {
 
 			if (title === 'Open home times:') {
 				value = extractOpenHomeDates(value);
+			}
+			if (title === 'Rooms:') {
+				const regex = /(.*) bedroom[s]?, (.*) bathroom[s]?/;
+				const matches = regex.exec(value);
+				if (matches == null) {
+					throw new Error(`Unexpected rooms value: ${value}`);
+				}
+				bedrooms = matches[1];
+				bathrooms = matches[2];
+			}
+			if (title === 'Location:') {
+				// const address = value.split(',');
+				// if (address.length !== 4 && address.length !== 3) {
+				// 	throw new Error('Unexpected address: ' + address);
+				// }
 			}
 			const attribute = {
 				title, value
@@ -202,7 +222,37 @@ function mineUrl(url) {
 			coordinates: [ mapState.lng, mapState.lat ]
     };
 
-		const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName, agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, url, location, agentPhoto, priceStructure };
+    const categoryElements = $('#BreadcrumbsContainer ul li a span');
+    categoryElements.each((i, categoryElement) => {
+    	const category = $(categoryElement).html();
+    	if (i === 0) {
+    		if (category !== 'Trade Me Property') {
+    			throw `Unexpected categories: ${category}`;
+    		}
+
+    		return;
+    	} 
+
+    	if (i === 1) {
+    		if (category !== 'Residential') {
+    			throw `Unexpected categories: ${category}`;	
+    		}
+
+    		return;
+    	}
+
+    	if (i === 2) {
+    		if (category !== 'For Sale') {
+    			throw `Unexpected categories: ${category}`;	
+    		}
+
+    		return;
+    	}
+    });
+
+		const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName,
+		 agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, 
+		 url, location, agentPhoto, priceStructure, bedrooms, bathrooms };
 		return listing;
 	});
 }
