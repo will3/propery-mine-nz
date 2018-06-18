@@ -11,14 +11,8 @@ const libUrl = require('url');
 let minPage = Infinity;
 const pagesToTry = 10000;
 
-module.exports = function(param) {
-	if (param == null) {
-		minePages(1);	
-	} else if (parseInt(param) > 0) {
-		minePages(parseInt(param));	
-	} else {
-		mineUrl(param);
-	}
+module.exports = function(startPaqe) {
+	return minePages(startPaqe);
 }
 
 let db;
@@ -26,7 +20,7 @@ let db;
 let urlObject;
 function minePages(startPage) {
 	var i = startPage;
-	connectDb().then((_db) => {
+	return connectDb().then((_db) => {
 		db = _db;
 		return db.createCollection("listings");
 	}).then(() => {
@@ -34,8 +28,6 @@ function minePages(startPage) {
 	}).then((_urlObject) => {
 		urlObject = _urlObject;
 		queueNext();
-	}).catch((err) => {
-		throw err;
 	});
 
 	function queueNext() {
