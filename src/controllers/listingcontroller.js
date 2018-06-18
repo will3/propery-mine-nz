@@ -1,4 +1,5 @@
 const geolib = require('geolib');
+const request = require('request-promise');
 
 function getLngDiff(lng) {
 	return Math.abs(lng % 360);
@@ -105,6 +106,25 @@ module.exports = function(app, dbo) {
 			res.send(err);
 		});
 	});
+
+	app.get('/properties', (req, res) => {
+		console.log(req.query);
+		const lng = req.query.lng;
+		const lat = req.query.lat;
+		// ?x=174.6720&y=-36.9101
+		const url = `https://koordinates.com/services/query/v1/vector.json?key=eaede5c887354322993bb0dd973c49f0&x=${lng}&y=${lat}&layer=50804&geometry=true&with_field_names=true`;
+		console.log(url);
+		request(url).then((result) => {
+			result = JSON.parse(result);
+			res.setHeader('Content-Type', 'application/json');
+			const property = {
+				boundary: result.vectorQuery.layers['50804'].features[0].geometry
+			};
+			res.send(property);
+		}).catch((err) => {
+			res.send(err);
+		});
+	}); 
 };
 
 function getClusters(listings, width) {
