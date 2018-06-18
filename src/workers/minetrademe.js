@@ -1,4 +1,4 @@
-const request = require('request-promise');
+const request = require('requestretry');
 const cheerio = require('cheerio');
 const _ = require('lodash');
 const Promise = require('bluebird');
@@ -12,16 +12,73 @@ let minPage = Infinity;
 const pagesToTry = 10000;
 
 let db;
+const userAgent = `Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)`;
+let currentUrl;
+let currentPage;
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.log(reason);
+});
+
+function get(params) {
+	if (typeof params === 'string') {
+		params = {
+			url: params
+		};
+	}
+	params.headers = {
+		'User-Agent': userAgent
+	};
+	return request(params);
+}
 
 module.exports = function(startPaqe) {
 	return connectDb().then((_db) => {
 		db = _db;
 	}).then(() => {
+		console.log('getting regions...');
+		return mineRegions();
+	}).then(() => {
 		return minePages(startPaqe);
+	}).catch((err) => {
+		console.log('Failed at page: ' + currentPage + '\nurl: ' + currentUrl);
+		throw err;
+	});
+}
+
+const regionMap = {};
+
+function mineRegions(regions) {
+	return db.collection('regions').deleteMany({}).then(() => {
+		const url = `https://api.trademe.co.nz/v1/Localities/Regions.json`;
+		return get({
+			url, json: true
+		});
+	}).then((response) => {
+		const regions = response.body;
+		db.collection('regions').insertMany(regions);
+		regions.forEach((region) => {
+			regionMap[region.Name] = {};
+			region.Districts.forEach((district) => {
+				regionMap[region.Name][district.Name] = {
+					hasSuburbs: district.Suburbs.length > 0,
+					hasSameNameSuburb: false,
+					suburbs: {}
+				};
+				district.Suburbs.forEach((suburb) => {
+					suburb.Name = suburb.Name.trim();
+					if (suburb.Name === district.Name) {
+						regionMap[region.Name][district.Name].hasSameNameSuburb = true;
+					}
+					regionMap[region.Name][district.Name].suburbs[suburb.Name] = true;
+				});
+			});
+		});
 	});
 }
 
 let urlObject;
+const waitTime = 0;
 function minePages(startPage) {
 	var i = startPage;
 	return db.createCollection("listings").then(() => {
@@ -32,6 +89,7 @@ function minePages(startPage) {
 	});
 
 	function queueNext() {
+		currentPage = i;
 		console.log('page ' + i);
 		getUrls(i).then(() => {
 			i++;
@@ -41,7 +99,8 @@ function minePages(startPage) {
 			if (i >= pagesToTry) {
 				return;
 			}
-			return queueNext();
+
+			setTimeout(queueNext, waitTime);
 		}).catch((err) => {
 			throw err;
 		});		
@@ -52,7 +111,8 @@ function getUrls(pageNumber) {
 	urlObject.query.page = pageNumber;
 	const url = libUrl.format(urlObject);
 
-	return request(url).then((body) => {
+	return get(url).then((response) => {
+		const body = response.body;
 		if (body == null) {
 			throw new Error('failed to extract body');
 		}
@@ -141,8 +201,9 @@ function extractPriceStructure(price, $) {
 }
 
 function mineUrl(url) {
-	return request(url).then((body) => {
-		console.log('mining ' + url);
+	return get(url).then((response) => {
+		const body = response.body;
+		currentUrl = url;
 		const $ = cheerio.load(body);
 		if ($('#ExpiredContainer_LoginMessage').length > 0) {
 			// expired
@@ -180,7 +241,7 @@ function mineUrl(url) {
 
 		let bedrooms;
 		let bathrooms;
-
+		let address;
 		rows.each(function(i, row) {
 			const title = $('th', row).html().trim();
 			if (!_.includes(attributeTypes, title)) {
@@ -201,10 +262,36 @@ function mineUrl(url) {
 				bathrooms = matches[2];
 			}
 			if (title === 'Location:') {
-				// const address = value.split(',');
-				// if (address.length !== 4 && address.length !== 3) {
-				// 	throw new Error('Unexpected address: ' + address);
-				// }
+				const originalValue = value;
+				value = he.decode(value);
+				value = value.replace(/\u00AD/g,''); // Remove soft hyphens
+				const addressComponents = value.split(',');
+				const region = addressComponents[addressComponents.length - 1].trim();
+				const district = addressComponents[addressComponents.length - 2].trim();
+				let suburb = addressComponents.length < 3 ? null : 
+					addressComponents[addressComponents.length - 3].trim();
+				if (regionMap[region] == null) {
+					throw new Error('Failed to extract region from: ' + value + ' - ' + url + ' - ' + originalValue);
+				}
+				if (regionMap[region][district] == null) {
+					throw new Error('Failed to extract district from: ' + value + ' - ' + url + ' - ' + originalValue);
+				}
+				if (regionMap[region][district].suburbs[suburb] == null) {
+					if (regionMap[region][district].hasSuburbs) {
+						if (regionMap[region][district].hasSameNameSuburb) {
+							suburb = district;
+						} else {
+							throw new Error('Failed to extract suburb from: ' + value + ' - ' + url + ' - ' + originalValue);
+						}
+					}
+					suburb = null;
+				}
+				address = {
+					full: value,
+					region: region,
+					district: district,
+					suburb: suburb
+				};
 			}
 			const attribute = {
 				title, value
@@ -250,9 +337,13 @@ function mineUrl(url) {
     	}
     });
 
+    if (address == null) {
+    	throw new Error('no address?');
+    }
+    const importDate = new Date().getTime();
 		const listing = { _id, listingId, title, price, listedStatus, images, agentBrandingImage, agentName,
 		 agencyName, agentWorkPhoneNumber, agentMobilePhoneNumber, description, mapState, expiredAt, attributes, 
-		 url, location, agentPhoto, priceStructure, bedrooms, bathrooms };
+		 url, location, agentPhoto, priceStructure, bedrooms, bathrooms, address, importDate };
 		return listing;
 	});
 }
@@ -298,7 +389,8 @@ function extractMapState($) {
 
 function getUrlObject() {
 	const firstPage = `https://www.trademe.co.nz/browse/categoryattributesearchresults.aspx?sort_order=expiry_desc&136=&153=&132=PROPERTY&122=0%2C0&49=0%2C0&29=&123=0%2C0&search=1&sidebar=1&cid=5748&rptpath=350-5748-&216=0%2C0&217=0%2C0&rsqid=8c5eabfa132f4eefa6ed5446992a54d0`;
-	return request(firstPage).then((body) => {
+	return get(firstPage).then((response) => {
+		const body = response.body;
 		if (body == null) {
 			throw new Error('failed to extract body');
 		}
