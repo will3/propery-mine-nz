@@ -270,6 +270,8 @@ function mineUrl(url) {
 				const district = addressComponents[addressComponents.length - 2].trim();
 				let suburb = addressComponents.length < 3 ? null : 
 					addressComponents[addressComponents.length - 3].trim();
+
+				let streetEndIndex = value.length - 3;
 				if (regionMap[region] == null) {
 					throw new Error('Failed to extract region from: ' + value + ' - ' + url + ' - ' + originalValue);
 				}
@@ -280,14 +282,24 @@ function mineUrl(url) {
 					if (regionMap[region][district].hasSuburbs) {
 						if (regionMap[region][district].hasSameNameSuburb) {
 							suburb = district;
+							streetEndIndex -= 1;
 						} else {
 							throw new Error('Failed to extract suburb from: ' + value + ' - ' + url + ' - ' + originalValue);
 						}
+					} else {
+						suburb = null;
+						streetEndIndex += 1;	
 					}
-					suburb = null;
 				}
+
+				const street = value.slice(0, streetEndIndex);
+
+				if (street.length !== 1) {
+					throw new Error('Failed to extract street');
+				}
+
 				address = {
-					full: value,
+					street: street[0],
 					region: region,
 					district: district,
 					suburb: suburb

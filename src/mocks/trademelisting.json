@@ -1,0 +1,116 @@
+{
+    "ListingId": 1671089580,
+    "Title": "A Home to Be Proud Of!",
+    "Category": "0350-5748-3399-",
+    "StartPrice": 0,
+    "StartDate": "/Date(1529356582613)/",
+    "EndDate": "/Date(1534194982630)/",
+    "ListingLength": null,
+    "HasGallery": true,
+    "AsAt": "/Date(1529356660545)/",
+    "CategoryPath": "/Trade-Me-Property/Residential/For-Sale",
+    "PictureHref": "https://trademe.tmcdn.co.nz/photoserver/full/815137289.jpg",
+    "RegionId": 3,
+    "Region": "Canterbury",
+    "SuburbId": 2182,
+    "Suburb": "Huntsbury",
+    "NoteDate": "/Date(0)/",
+    "ReserveState": 3,
+    "IsClassified": true,
+    "OpenHomes": [
+    {
+        "Start": "/Date(1529806500000)/",
+        "End": "/Date(1529809200000)/"
+    }],
+    "GeographicLocation":
+    {
+        "Latitude": -43.562313,
+        "Longitude": 172.6654346,
+        "Northing": 5176684,
+        "Easting": 1572980,
+        "Accuracy": 1
+    },
+    "PriceDisplay": "Asking price: $839,000",
+    "PhotoUrls": [
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137295.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137306.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137311.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137320.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137324.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137329.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137336.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137343.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137351.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137357.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137363.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137371.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137377.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137383.jpg",
+        "https://trademe.tmcdn.co.nz/photoserver/full/815137391.jpg"
+    ],
+    "HasEmbeddedVideo": true,
+    "AdditionalData":
+    {
+        "BulletPoints": [],
+        "Tags": []
+    },
+    "MemberId": 2325463,
+    "Address": "292 Centaurus Road",
+    "District": "Christchurch City",
+    "AgencyReference": "RX1535188",
+    "Area": 240,
+    "LandArea": 1057,
+    "Bathrooms": 2,
+    "Bedrooms": 4,
+    "ListingGroup": "PROPERTY",
+    "Parking": "Garages: 2",
+    "PropertyType": "House",
+    "PropertyId": "FVQ050",
+    "AdjacentSuburbNames": [
+        "Beckenham",
+        "Huntsbury",
+        "Murray Aynsley",
+        "Hillsborough",
+        "Opawa",
+        "St. Martins",
+        "Somerfield",
+        "Cashmere"
+    ],
+    "AdjacentSuburbIds": [
+        2338,
+        2182,
+        2183,
+        2184,
+        2186,
+        2187,
+        2179,
+        2181
+    ],
+    "DistrictId": 60,
+    "Agency":
+    {
+        "Id": 3766,
+        "Name": "Whittle Knight & Boatwood MREINZ, Licensed Agent (REAA 2008)",
+        "PhoneNumber": "+64-3-3484149",
+        "FaxNumber": "+64-3-3484138",
+        "Website": "http://www.wkb.co.nz/",
+        "Logo": "https://trademe.tmcdn.co.nz/tm/property/agent_logos/2325463-7.jpg",
+        "Branding":
+        {
+            "BackgroundColor": "#141499",
+            "TextColor": "#ffffff",
+            "StrokeColor": "",
+            "OfficeLocation": "",
+            "LargeBannerURL": "https://trademe.tmcdn.co.nz/tm/property/agent_logos/office_branding/2325463-office_branding-5.jpg"
+        },
+        "Agents": [
+        {
+            "FullName": "Thomas Knight",
+            "OfficePhoneNumber": "(027) 4282284",
+            "Photo": "https://trademe.tmcdn.co.nz/property/agent_profile/80x80/agent_individual_profile5976295v4.jpg",
+            "UrlSlug": "Thomas-Knight"
+        }],
+        "IsRealEstateAgency": true,
+        "IsLicensedPropertyAgency": true
+    }
+}
